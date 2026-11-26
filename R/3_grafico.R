@@ -42,6 +42,16 @@ tema_oppf <- function(b = 12) {
 
 partir <- function(x, n) if (is.null(x) || !nzchar(x)) NULL else paste(strwrap(x, n), collapse = "\n")
 fnum   <- function(x, d) format(round(x, d), nsmall = d, decimal.mark = ",", trim = TRUE)
+# Ancho aproximado (pulgadas) de un texto de n caracteres a un cuerpo de pt puntos
+# (Roboto: unos 0,55 em por carácter). Sirve para que etiquetas y años quepan
+# también en pantallas estrechas.
+ancho_texto <- function(n, pt) n * .55 * pt / 72
+# Primer paso (1, 2, 4 u 8 olas) con el que los rótulos de los años no se pisan;
+# in_por_ola = pulgadas entre una ola y la siguiente
+paso_anios <- function(in_por_ola, ancho_rotulo) {
+  for (s in c(1, 2, 4, 8)) if (s * in_por_ola >= 1.6 * ancho_rotulo) return(s)
+  8
+}
 
 # Tramos de cada serie: la línea se corta donde falta una ola (la pregunta no se
 # hizo) y en el paso de la encuesta presencial a la telefónica (CAMBIO_MODO).
@@ -81,6 +91,12 @@ hacer_grafico <- function(r, op) {
   k        <- op$base / ggplot2::.pt       # todo el texto del gráfico depende de op$base
   npan     <- if (hay_otro) min(4, dplyr::n_distinct(r$otro)) else if (hay_g2) min(4, dplyr::n_distinct(r$g2)) else 1
   n_olas   <- dplyr::n_distinct(r$año)
+  # Columnas de paneles: hasta 4, menos si no caben paneles de 1,3 pulgadas
+  # (en el móvil, dos). Y ancho de cada panel, sin eje, márgenes ni separación.
+  ancho_in <- if (is.null(op$ancho_in)) 9.4 else op$ancho_in
+  ncol_pan <- if (hay_otro && hay_g2) dplyr::n_distinct(r$otro)
+              else max(1, min(npan, floor((ancho_in - .5) / 1.6)))
+  panel_in <- max(1, (ancho_in - .8 - (ncol_pan - 1) * .3) / ncol_pan)
   # Con varios paneles o muchas olas, los años se abrevian para que no se pisen
   anio_txt <- function(x) if (npan >= 3 || (npan == 2 && n_olas > 10) || (op$tipo == "apilada" && n_olas > 12 && npan >= 2))
     paste0("'", substr(x, 3, 4)) else as.character(x)
@@ -100,8 +116,23 @@ hacer_grafico <- function(r, op) {
     unico <- !hay_otro && !hay_g2
     ult   <- r[r$año == stats::ave(r$año, r$col, r$otro, r$g2, FUN = max), ]
     nser  <- dplyr::n_distinct(r$col)
-    cabe     <- if (unico) 28 else if (npan == 2) 18 else 10
-    directas <- nser > 1 && nser <= 8 && npan <= 3 && max(nchar(as.character(r$col))) <= cabe
+    vivas <- ult[ult$año == max(anios), ]; caidas <- ult[ult$año < max(anios), ]
+    etiqueta <- function(d) if (unico) paste0(d$col, "  ", fnum(d$valor, if (media) 1 else 0), suf) else as.character(d$col)
+    # Etiquetas directas a la derecha solo si caben en el ancho real del panel;
+    # si no, leyenda arriba. El hueco de la derecha mide lo que mide el texto.
+    l_in     <- if (nrow(vivas)) ancho_texto(max(nchar(etiqueta(vivas))), op$base) + .15 else 0
+    directas <- nser > 1 && nser <= 8 && npan <= 3 && l_in <= .38 * panel_in
+    # Si los nombres no caben (móvil), solo el valor junto al último punto; los
+    # nombres pasan a la leyenda
+    rotular  <- directas
+    if (!directas && nser > 1 && nser <= 8 && npan <= 3 && nrow(vivas)) {
+      etq_valor <- function(d) paste0(fnum(d$valor, if (media) 1 else 0), suf)
+      l_valor   <- ancho_texto(max(nchar(etq_valor(vivas))), op$base) + .15
+      if (l_valor <= .38 * panel_in) { etiqueta <- etq_valor; l_in <- l_valor; rotular <- TRUE }
+    }
+    m_der    <- if (rotular) l_in * 1.04 / (panel_in - l_in) else .06
+    datos_in <- panel_in / (1.04 + m_der)                  # ancho de la zona con datos
+    in_anio  <- datos_in / max(1, diff(range(anios)))
     r$ultimo <- r$año == stats::ave(r$año, r$col, r$otro, r$g2, FUN = max)
     p <- ggplot2::ggplot(r, ggplot2::aes(año, valor, color = col, fill = col, group = col))
     # Cambio de modo: raya vertical fina, por detrás de las series
@@ -122,28 +153,32 @@ hacer_grafico <- function(r, op) {
       ggplot2::geom_point(data = r[(r$ultimo | r$solo) & r$fiable, ], size = op$base * .24, show.legend = FALSE) +
       ggplot2::geom_point(data = r[!r$fiable, ], size = op$base * .2, shape = 21, fill = "white", stroke = .8, show.legend = FALSE) +
       ggiraph::geom_point_interactive(ggplot2::aes(tooltip = txt, data_id = id), size = op$base * .6, alpha = .004, show.legend = FALSE)
-    vivas <- ult[ult$año == max(anios), ]; caidas <- ult[ult$año < max(anios), ]
-    if (directas) {
+    if (rotular) {
       # Series que acaban antes (IU, UPyD, Cs, Podemos...): etiqueta sobre su
       # último punto, con halo blanco porque suele caer encima de otras líneas
-      if (nrow(caidas)) p <- p + ggrepel::geom_text_repel(data = caidas, ggplot2::aes(label = if (unico) paste0(col, "  ", fnum(valor, if (media) 1 else 0), suf) else as.character(col)),
+      if (nrow(caidas)) p <- p + ggrepel::geom_text_repel(data = caidas, ggplot2::aes(label = etiqueta(caidas)),
         hjust = .5, direction = "y", nudge_y = .035 * max(r$sup), segment.color = NA, seed = 1, size = k, box.padding = .12,
         bg.color = "white", bg.r = .14, family = FUENTE[["media"]], show.legend = FALSE)
-      p <- p + ggrepel::geom_text_repel(data = vivas, ggplot2::aes(label = if (unico) paste0(col, "  ", fnum(valor, if (media) 1 else 0), suf) else as.character(col)),
-        hjust = 0, direction = "y", nudge_x = .18, segment.color = NA, seed = 1, size = k, box.padding = .12,
-        family = FUENTE[["media"]], xlim = c(max(anios) + .12, NA), show.legend = FALSE)
-    } else if (nser == 1)
-      p <- p + ggrepel::geom_text_repel(data = r, ggplot2::aes(label = paste0(fnum(valor, if (media) 1 else 0), suf)),
+      # Separación del último punto: al menos 0,08 pulgadas, sea cual sea el ancho
+      sep <- max(.18, .08 / in_anio)
+      p <- p + ggrepel::geom_text_repel(data = vivas, ggplot2::aes(label = etiqueta(vivas)),
+        hjust = 0, direction = "y", nudge_x = sep, segment.color = NA, seed = 1, size = k, box.padding = .12,
+        family = FUENTE[["media"]], xlim = c(max(anios) + sep * .67, NA), show.legend = FALSE)
+    } else if (nser == 1) {
+      # Una sola serie: el valor en cada ola si cabe; si no, solo en la última
+      cifras <- if (in_anio >= 1.1 * ancho_texto(4, op$base * .95)) r else r[r$ultimo, ]
+      p <- p + ggrepel::geom_text_repel(data = cifras, ggplot2::aes(label = paste0(fnum(valor, if (media) 1 else 0), suf)),
         direction = "y", nudge_y = .02 * max(r$valor), segment.color = NA, seed = 1, size = k * .95,
         bg.color = "white", bg.r = .14, family = FUENTE[["media"]], show.legend = FALSE)
+    }
     ejes_y <- if (media && op$cero) c(0, 5, 10) else scales::breaks_extended(n = 4)
     lim <- if (media) { if (op$cero) c(0, 10) else NULL } else { if (op$cero) c(0, NA) else NULL }
-    # Muchas olas: un año de cada dos (de cada cuatro con 3 o más paneles),
+    # Años rotulados: tantos como quepan sin pisarse (uno de cada 1, 2, 4 u 8),
     # contando hacia atrás desde el último
-    paso   <- if (length(anios) <= 10) 1 else if (npan >= 3) 4 else 2
+    paso   <- paso_anios(in_anio, ancho_texto(nchar(anio_txt(max(anios))), op$base * .95))
     ejes_x <- anios[(max(anios) - anios) %% paso == 0]
     p <- p + ggplot2::scale_x_continuous(breaks = ejes_x, labels = anio_txt,
-        expand = ggplot2::expansion(mult = c(.04, if (directas) (.07 + .0125 * max(nchar(as.character(vivas$col)), 4)) * (if (unico) 1 else if (npan == 2) 1.35 else 2.3) else .06))) +
+        expand = ggplot2::expansion(mult = c(.04, m_der))) +
       ggplot2::scale_y_continuous(limits = lim, breaks = ejes_y, labels = eje_txt,
                                   expand = ggplot2::expansion(mult = c(if (op$cero) 0 else .06, if (rotular_modo) .17 else .08)))
     if (op$cero) p <- p + ggplot2::geom_hline(yintercept = 0, linewidth = .9, color = "grey35")   # el panel recorta la mitad
@@ -176,6 +211,10 @@ hacer_grafico <- function(r, op) {
     sin_leyenda <- TRUE
 
   } else {                                             # apiladas
+    # Ancho de cada barra: decide si caben las cifras dentro y cuántos años rotular
+    in_barra <- panel_in / max(1, n_olas)
+    cifras   <- .78 * in_barra >= 1.3 * ancho_texto(2, op$base * .9)
+    paso     <- paso_anios(in_barra, ancho_texto(nchar(anio_txt(max(r$año))), op$base * .95))
     p <- ggplot2::ggplot(r, ggplot2::aes(factor(año), valor, fill = col, group = col))
     # Cambio de modo: raya entre la última ola presencial y la primera telefónica
     if (cruza_modo) p <- p + ggplot2::geom_vline(
@@ -184,12 +223,11 @@ hacer_grafico <- function(r, op) {
       ggiraph::geom_col_interactive(ggplot2::aes(tooltip = txt, data_id = id), width = .78, color = "white", linewidth = .5,
                                     position = ggplot2::position_stack(reverse = TRUE)) +
       # Con muchas barras estrechas las cifras no caben: queda el dato al pasar el ratón
-      ggplot2::geom_text(ggplot2::aes(label = ifelse(valor >= 7 & n_olas * npan <= 36, fnum(valor, 0), "")),
+      ggplot2::geom_text(ggplot2::aes(label = ifelse(valor >= 7 & cifras, fnum(valor, 0), "")),
                          position = ggplot2::position_stack(vjust = .5, reverse = TRUE),
                          color = "white", size = k * .9, family = FUENTE[["media"]]) +
       ggplot2::scale_x_discrete(labels = anio_txt, breaks = local({
-        a <- sort(unique(r$año)); paso <- if (n_olas <= 12 || npan == 1) 1 else if (npan >= 3) 4 else 2
-        as.character(a[(max(a) - a) %% paso == 0]) })) +
+        a <- sort(unique(r$año)); as.character(a[seq(length(a), 1, by = -paso)]) })) +
       ggplot2::scale_y_continuous(limits = c(0, 100.5), labels = function(x) paste0(x, "%"), expand = c(0, 0))
     sin_leyenda <- FALSE
   }
@@ -206,9 +244,9 @@ hacer_grafico <- function(r, op) {
   if (hay_otro && hay_g2)
     p <- p + ggplot2::facet_grid(g2 ~ otro, labeller = ggplot2::as_labeller(etq))
   else if (hay_otro)
-    p <- p + ggplot2::facet_wrap(~ otro, ncol = min(4, dplyr::n_distinct(r$otro)), labeller = ggplot2::as_labeller(etq))
+    p <- p + ggplot2::facet_wrap(~ otro, ncol = ncol_pan, labeller = ggplot2::as_labeller(etq))
   else if (hay_g2)
-    p <- p + ggplot2::facet_wrap(~ g2, ncol = min(4, dplyr::n_distinct(r$g2)), labeller = ggplot2::as_labeller(etq))
+    p <- p + ggplot2::facet_wrap(~ g2, ncol = ncol_pan, labeller = ggplot2::as_labeller(etq))
 
   p <- p + ggplot2::labs(title = partir(op$titulo, ancho_t * .78), subtitle = partir(op$subtitulo, ancho_t), caption = op$pie) +
     tema_oppf(op$base)

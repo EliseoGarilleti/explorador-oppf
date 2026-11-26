@@ -170,7 +170,9 @@ server <- function(input, output, session) {
     r
   })
 
-  opciones <- function(r, exportar = FALSE) {
+  # ancho_in: ancho real del gráfico en pulgadas (pantalla o exportación), para
+  # que etiquetas y años se adapten a pantallas estrechas
+  opciones <- function(r, exportar = FALSE, ancho_in = NULL) {
     g1 <- input$g1
     todos <- if (comparando()) names(PESOS) else if (con_g1()) levels(datos()[[g1]]) else "Total"
     list(tipo = input$tipo, medida = medida(), hay_g1 = con_g1() || comparando(),
@@ -179,7 +181,8 @@ server <- function(input, output, session) {
          titulo = input$titulo,
          subtitulo = if (exportar && !nzchar(input$subtitulo)) info(input$var)$pregunta else input$subtitulo,
          pie = if (exportar) PIE else NULL,
-         ancho_txt = if (exportar) input$ancho * 4.6 else 120)
+         ancho_txt = if (exportar) input$ancho * 4.6 else 120,
+         ancho_in = if (exportar) input$ancho / 2.54 else ancho_in)
   }
 
   # --------------------------------------------------------------- Cabecera ---
@@ -234,7 +237,7 @@ server <- function(input, output, session) {
     r <- res(); if (input$tipo == "barras") validate(need(as.integer(input$ola) %in% r$año, "No hay datos en esa ola."))
     w <- session$clientData$output_graf_width; h <- session$clientData$output_graf_height
     w <- if (is.null(w) || w < 200) 900 else w; h <- if (is.null(h) || h < 250) 520 else h
-    ggiraph::girafe(ggobj = hacer_grafico(r, opciones(r)), width_svg = w / 96, height_svg = h / 96,
+    ggiraph::girafe(ggobj = hacer_grafico(r, opciones(r, ancho_in = w / 96)), width_svg = w / 96, height_svg = h / 96,
       options = list(
         ggiraph::opts_tooltip(css = "background:#fff;color:#222;border:1px solid #e3e3e0;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:8px 10px;font-family:Roboto,sans-serif;font-size:13px", opacity = 1),
         ggiraph::opts_hover(css = "fill-opacity:.28;stroke-opacity:0;"),

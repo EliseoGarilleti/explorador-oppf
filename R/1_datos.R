@@ -312,9 +312,9 @@ CRUCES <- list(
 
 # Categorías que no salen marcadas al elegir el grupo: solo se ven si el usuario
 # las añade. En el recuerdo de voto, las categorías que solo existen en olas
-# antiguas (IU y UPyD hasta 2015, Podemos de 2016 a 2022) y el grupo
+# antiguas (IU y UPyD hasta 2015, Podemos y Cs de 2016 a 2022) y el grupo
 # heterogéneo de los nacionalistas.
-SIN_MARCAR <- list(x_voto = c("Podemos", "IU", "UPyD", "Nacionalistas"))
+SIN_MARCAR <- list(x_voto = c("Podemos", "IU", "UPyD", "Cs", "Nacionalistas"))
 
 # ------------------------------------------------------------------ Colores ---
 PALETA <- c("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948")
