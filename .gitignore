@@ -1,0 +1,11 @@
+# Notas privadas: no se publican
+notas.docx
+
+# R y RStudio
+.Rhistory
+.RData
+.Rproj.user/
+rsconnect/
+
+# macOS
+.DS_Store
