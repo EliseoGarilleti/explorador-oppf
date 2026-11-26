@@ -38,7 +38,7 @@ seg    <- function(...) div(class = "seg", radioButtons(..., inline = TRUE))
 plegar <- function(titulo, ...) tags$details(class = "plegar", tags$summary(titulo), div(...))
 
 ui <- page_sidebar(
-  window_title = "Explorador OPPF v2",
+  window_title = "Explorador OPPF",
   theme = bs_theme(version = 5, primary = "#164b91", base_font = "Roboto, 'Helvetica Neue', Arial, sans-serif", "font-size-base" = "0.875rem"),
   tags$head(tags$style(HTML(readLines("estilo.css", encoding = "UTF-8") |> paste(collapse = "\n")))),
   sidebar = sidebar(
@@ -143,8 +143,8 @@ server <- function(input, output, session) {
   observeEvent(input$g1, {
     if (con_g1()) {
       n <- levels(datos()[[input$g1]])
-      # Todas empiezan marcadas menos los nacionalistas (grupo heterogéneo)
-      updateSelectizeInput(session, "g1_cat", choices = n, selected = setdiff(n, "Nacionalistas"))
+      # Todas empiezan marcadas salvo las de SIN_MARCAR (R/1_datos.R)
+      updateSelectizeInput(session, "g1_cat", choices = n, selected = setdiff(n, SIN_MARCAR[[input$g1]]))
       updateCheckboxInput(session, "comparar", value = FALSE)
     } else updateSelectizeInput(session, "g2", selected = "no")
   })
