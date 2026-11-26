@@ -2,7 +2,7 @@
 
 Explorador interactivo de la encuesta anual **Opinión Pública y Política Fiscal** del Centro de Investigaciones Sociológicas (CIS), de 2010 a 2026: qué piensan los españoles de los impuestos, el gasto público, el funcionamiento de los servicios públicos y el fraude fiscal, y cómo ha cambiado.
 
-**[Abrir el explorador](https://01a217d3-1525-4c15-c658-39842a4462cb.share.connect.posit.cloud/)** (si nadie lo ha usado en un rato, tarda unos segundos en arrancar).
+**[Abrir el explorador](https://egarilleti-oppf.share.connect.posit.cloud/)** (si nadie lo ha usado en un rato, tarda unos segundos en arrancar).
 
 - **Evolución o una sola ola** de cada pregunta, en líneas, barras o barras apiladas.
 - **Cruces** por sexo, edad, ideología, recuerdo de voto, estudios, situación económica, hábitat, situación laboral, ingresos y religiosidad.
