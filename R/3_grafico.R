@@ -120,9 +120,12 @@ hacer_grafico <- function(r, op) {
     etiqueta <- function(d) if (unico) paste0(d$col, "  ", fnum(d$valor, if (media) 1 else 0), suf) else as.character(d$col)
     # Etiquetas directas a la derecha solo si caben en el ancho real del panel;
     # si no, leyenda arriba. El hueco de la derecha mide lo que mide el texto.
+    # En pantallas estrechas (móvil, menos de 6 pulgadas) los nombres van siempre
+    # a la leyenda: el ancho es para los datos
+    estrecho <- ancho_in < 6
     l_in     <- if (nrow(vivas)) ancho_texto(max(nchar(etiqueta(vivas))), op$base) + .15 else 0
-    directas <- nser > 1 && nser <= 8 && npan <= 3 && l_in <= .38 * panel_in
-    # Si los nombres no caben (móvil), solo el valor junto al último punto; los
+    directas <- !estrecho && nser > 1 && nser <= 8 && npan <= 3 && l_in <= .38 * panel_in
+    # Si los nombres no van en la línea, solo el valor junto al último punto; los
     # nombres pasan a la leyenda
     rotular  <- directas
     if (!directas && nser > 1 && nser <= 8 && npan <= 3 && nrow(vivas)) {
@@ -159,8 +162,8 @@ hacer_grafico <- function(r, op) {
       if (nrow(caidas)) p <- p + ggrepel::geom_text_repel(data = caidas, ggplot2::aes(label = etiqueta(caidas)),
         hjust = .5, direction = "y", nudge_y = .035 * max(r$sup), segment.color = NA, seed = 1, size = k, box.padding = .12,
         bg.color = "white", bg.r = .14, family = FUENTE[["media"]], show.legend = FALSE)
-      # Separación del último punto: al menos 0,08 pulgadas, sea cual sea el ancho
-      sep <- max(.18, .08 / in_anio)
+      # Separación del último punto: al menos 0,12 pulgadas, sea cual sea el ancho
+      sep <- max(.18, .12 / in_anio)
       p <- p + ggrepel::geom_text_repel(data = vivas, ggplot2::aes(label = etiqueta(vivas)),
         hjust = 0, direction = "y", nudge_x = sep, segment.color = NA, seed = 1, size = k, box.padding = .12,
         family = FUENTE[["media"]], xlim = c(max(anios) + sep * .67, NA), show.legend = FALSE)
@@ -237,8 +240,14 @@ hacer_grafico <- function(r, op) {
     r$col <- r$g1; pal <- op$col_g1
     p$data <- r
   }
-  p <- p + ggplot2::scale_fill_manual(values = pal, drop = TRUE)
-  if (op$tipo == "linea") p <- p + ggplot2::scale_color_manual(values = pal, drop = TRUE)
+  # Textos de la leyenda partidos para que quepan en el ancho real (móvil)
+  car_leyenda <- max(12, floor((ancho_in - .9) / ancho_texto(1, op$base)))
+  envolver <- function(x) vapply(x, function(s) paste(strwrap(s, car_leyenda), collapse = "\n"), "")
+  # Orden de la leyenda = orden de las categorías (si no, ggplot2 sigue el orden
+  # en que aparecen en las capas: el tramo 2019-2020 dejaba a Sumar al final)
+  orden <- levels(droplevels(factor(r$col)))
+  p <- p + ggplot2::scale_fill_manual(values = pal, breaks = orden, drop = TRUE, labels = envolver)
+  if (op$tipo == "linea") p <- p + ggplot2::scale_color_manual(values = pal, breaks = orden, drop = TRUE, labels = envolver)
 
   etq <- function(x) vapply(as.character(x), partir, "", n = 34)
   if (hay_otro && hay_g2)
@@ -257,8 +266,11 @@ hacer_grafico <- function(r, op) {
   }
   if (sin_leyenda) p <- p + ggplot2::theme(legend.position = "none")
   else p <- p + {
-    # Nombres largos: leyenda en vertical para que no se corte
-    g <- if (sum(nchar(levels(droplevels(r$col)))) > 85) ggplot2::guide_legend(ncol = 1) else ggplot2::guide_legend(nrow = 1)
+    # Una fila si cabe en el ancho real; si no, tantas columnas como quepan
+    # (en el móvil, la leyenda salta de línea en vez de cortarse)
+    ent <- ancho_texto(pmin(nchar(levels(droplevels(r$col))), car_leyenda) + 4, op$base)
+    g <- if (sum(ent) <= ancho_in - .3) ggplot2::guide_legend(nrow = 1)
+         else ggplot2::guide_legend(ncol = max(1, floor((ancho_in - .3) / max(ent))), byrow = TRUE)
     ggplot2::guides(fill = if (op$tipo == "linea") "none" else g, color = g)
   }
   p
