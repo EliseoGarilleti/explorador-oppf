@@ -110,6 +110,9 @@ hacer_grafico <- function(r, op) {
   filas_pan <- if (hay_otro && hay_g2) dplyr::n_distinct(r$g2)
                else if (hay_otro) ceiling(dplyr::n_distinct(r$otro) / ncol_pan)
                else if (hay_g2) ceiling(dplyr::n_distinct(r$g2) / ncol_pan) else 1
+  # Grosor de líneas y puntos: con varios paneles, proporcional a su tamaño
+  # (hasta un 60 %, en el móvil); con un solo panel, el de siempre
+  trazo <- if (npan > 1) min(1, max(.6, panel_in / 3.2)) else 1
   # Con varios paneles o muchas olas, los años se abrevian para que no se pisen
   anio_txt <- function(x) if (npan >= 3 || (npan == 2 && n_olas > 10) || (op$tipo == "apilada" && n_olas > 12 && npan >= 2))
     paste0("'", substr(x, 3, 4)) else as.character(x)
@@ -164,10 +167,10 @@ hacer_grafico <- function(r, op) {
     # ratón (capa transparente).
     if (nrow(tr$puente)) p <- p + ggplot2::geom_segment(data = tr$puente,
         ggplot2::aes(x = x, xend = xend, y = y, yend = yend, color = col), inherit.aes = FALSE,
-        linewidth = .8, linetype = "22", lineend = "butt", show.legend = FALSE)
-    p <- p + ggplot2::geom_line(ggplot2::aes(group = tramo), linewidth = .95, lineend = "round", linejoin = "round") +
-      ggplot2::geom_point(data = r[(r$ultimo | r$solo) & r$fiable, ], size = op$base * .24, show.legend = FALSE) +
-      ggplot2::geom_point(data = r[!r$fiable, ], size = op$base * .2, shape = 21, fill = "white", stroke = .8, show.legend = FALSE) +
+        linewidth = .8 * trazo, linetype = "22", lineend = "butt", show.legend = FALSE)
+    p <- p + ggplot2::geom_line(ggplot2::aes(group = tramo), linewidth = .95 * trazo, lineend = "round", linejoin = "round") +
+      ggplot2::geom_point(data = r[(r$ultimo | r$solo) & r$fiable, ], size = op$base * .24 * trazo, show.legend = FALSE) +
+      ggplot2::geom_point(data = r[!r$fiable, ], size = op$base * .2 * trazo, shape = 21, fill = "white", stroke = .8 * trazo, show.legend = FALSE) +
       ggiraph::geom_point_interactive(ggplot2::aes(tooltip = txt, data_id = id), size = op$base * .6, alpha = .004, show.legend = FALSE)
     if (rotular) {
       # Series que acaban antes (IU, UPyD, Cs, Podemos...): etiqueta sobre su
@@ -197,7 +200,7 @@ hacer_grafico <- function(r, op) {
         expand = ggplot2::expansion(mult = c(.04, m_der))) +
       ggplot2::scale_y_continuous(limits = lim, breaks = ejes_y, labels = eje_txt,
                                   expand = ggplot2::expansion(mult = c(if (op$cero) 0 else .06, if (rotular_modo) .17 else .08)))
-    if (op$cero) p <- p + ggplot2::geom_hline(yintercept = 0, linewidth = .9, color = "grey35")   # el panel recorta la mitad
+    if (op$cero) p <- p + ggplot2::geom_hline(yintercept = 0, linewidth = .9 * trazo, color = "grey35")   # el panel recorta la mitad
     if (directas || nser == 1) p <- p + ggplot2::theme(legend.position = "none")
     sin_leyenda <- directas || nser == 1
 
