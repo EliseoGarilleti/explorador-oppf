@@ -81,7 +81,7 @@ hacer_grafico <- function(r, op) {
                else hay1 && op$color == "grupo"
   r$col   <- if (por_grupo) r$g1 else r$cat
   r$otro  <- if (por_grupo) r$cat else r$g1
-  pal     <- if (por_grupo) op$col_g1 else colores_de(levels(r$cat))
+  pal     <- if (por_grupo) op$col_g1 else colores_respuestas(levels(r$cat), isTRUE(op$nominal))
   r$txt   <- paste0(fnum(r$valor, dec), suf)       # al pasar el ratón, solo el dato
   r$id    <- paste(r$col, r$año, r$otro, r$g2)
   r$alfa  <- ifelse(r$fiable, 1, .35)
@@ -211,7 +211,7 @@ hacer_grafico <- function(r, op) {
     ejes  <- levels(droplevels(r$eje))
     # Nombres largos o muchas categorías: barras horizontales
     tumbar <- npan == 1 && (length(ejes) > 6 || max(nchar(ejes)) > 24) && max(nchar(ejes)) > 4
-    if (!por_grupo && !hay1) { r$col <- factor("Total"); pal <- c(Total = PALETA[1]) }
+    if (!por_grupo && !hay1) { r$col <- factor("Total"); pal <- c(Total = AZUL) }
     p <- ggplot2::ggplot(r, ggplot2::aes(eje, valor, fill = col)) +
       ggiraph::geom_col_interactive(ggplot2::aes(tooltip = txt, data_id = id, alpha = alfa), width = .76) +
       ggplot2::scale_alpha_identity()
@@ -234,6 +234,10 @@ hacer_grafico <- function(r, op) {
     in_barra <- panel_in / max(1, n_olas)
     cifras   <- .78 * in_barra >= 1.3 * ancho_texto(2, op$base * .9)
     paso     <- paso_anios(in_barra, ancho_texto(nchar(anio_txt(max(r$año))), op$base * .95))
+    # Cifras en blanco sobre fondos oscuros y en gris oscuro sobre los claros
+    luz <- function(h) { m <- grDevices::col2rgb(h) / 255; m <- ifelse(m <= .03928, m / 12.92, ((m + .055) / 1.055)^2.4)
+                         colSums(c(.2126, .7152, .0722) * m) }
+    r$tinta <- ifelse(luz(pal[as.character(r$col)]) > .3, "grey15", "white")
     p <- ggplot2::ggplot(r, ggplot2::aes(factor(año), valor, fill = col, group = col))
     # Cambio de modo: raya entre la última ola presencial y la primera telefónica
     if (cruza_modo) p <- p + ggplot2::geom_vline(
@@ -242,9 +246,9 @@ hacer_grafico <- function(r, op) {
       ggiraph::geom_col_interactive(ggplot2::aes(tooltip = txt, data_id = id), width = .78, color = "white", linewidth = .5,
                                     position = ggplot2::position_stack(reverse = TRUE)) +
       # Con muchas barras estrechas las cifras no caben: queda el dato al pasar el ratón
-      ggplot2::geom_text(ggplot2::aes(label = ifelse(valor >= 7 & cifras, fnum(valor, 0), "")),
+      ggplot2::geom_text(ggplot2::aes(label = ifelse(valor >= 7 & cifras, fnum(valor, 0), ""), colour = I(tinta)),
                          position = ggplot2::position_stack(vjust = .5, reverse = TRUE),
-                         color = "white", size = k * .9, family = FUENTE[["media"]]) +
+                         size = k * .9, family = FUENTE[["media"]], show.legend = FALSE) +
       ggplot2::scale_x_discrete(labels = anio_txt, breaks = local({
         a <- sort(unique(r$año)); as.character(a[seq(length(a), 1, by = -paso)]) })) +
       ggplot2::scale_y_continuous(limits = c(0, 100.5), labels = function(x) paste0(x, "%"), expand = c(0, 0))

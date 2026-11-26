@@ -2381,7 +2381,7 @@
   },
   "files": {
     "app.R": {
-      "checksum": "7057362225bc883a6404adfd3484dcac"
+      "checksum": "f922ac0038601bd8df07de5959358881"
     },
     "datos/oppf_explorador.rds": {
       "checksum": "17e45623d516c351ad8cf76c6ea0d969"
@@ -2414,13 +2414,13 @@
       "checksum": "678ba85b47044ac65031832c80bdfe4a"
     },
     "R/1_datos.R": {
-      "checksum": "2fac9776a844269178c4a8e39883f186"
+      "checksum": "e7bb3f0dee677f7e2ab229bc752ab5b0"
     },
     "R/2_calculo.R": {
       "checksum": "dfa02066f772f52030f7b490a04cc83b"
     },
     "R/3_grafico.R": {
-      "checksum": "40c59a5e310c4c095737d37d4681c884"
+      "checksum": "11afd2829964d7f8812b53ab004134eb"
     },
     "R/4_excel.R": {
       "checksum": "32b8fae296e7cc24f017c7fdf7c5adf3"

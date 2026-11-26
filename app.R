@@ -179,7 +179,9 @@ server <- function(input, output, session) {
     g1 <- input$g1
     todos <- if (comparando()) names(PESOS) else if (con_g1()) levels(datos()[[g1]]) else "Total"
     list(tipo = input$tipo, medida = medida(), hay_g1 = con_g1() || comparando(),
-         col_g1 = colores_de(todos, g1), color = if (comparando()) "grupo" else input$color,
+         col_g1 = if (comparando()) colores_respuestas(todos, nominal = TRUE) else colores_de(todos, g1),
+         nominal = input$var %in% NOMINALES,
+         color = if (comparando()) "grupo" else input$color,
          ic = input$ic, cero = input$cero, ola = as.integer(input$ola), base = if (exportar) 11 else 10,
          titulo = input$titulo,
          subtitulo = if (exportar && !nzchar(input$subtitulo)) info(input$var)$pregunta else input$subtitulo,
@@ -290,7 +292,7 @@ server <- function(input, output, session) {
       c("Fuente", "CIS (Opinión Pública y Política Fiscal)"))
     por_grupo <- op$hay_g1 && op$color == "grupo" && op$tipo != "apilada"
     col <- if (por_grupo || (op$tipo == "barras" && op$hay_g1)) op$col_g1[levels(droplevels(r$g1))]
-           else colores_de(levels(r$cat))
+           else colores_respuestas(levels(r$cat), op$nominal)
     exportar_excel(f, r, op, as.data.frame(ficha), tabla(), col[!is.na(col)])
   })
   output$csv <- downloadHandler(function() nombre("csv"), function(f)

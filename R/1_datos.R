@@ -333,6 +333,39 @@ GAMAS <- list(
   "4" = c("#125a80", "#45a3c4", "#e8892f", "#b5301c"),
   "6" = c("#0f4a6b", "#2a86b0", "#72b8c8", "#efad4d", "#df6a35", "#9c2418"))
 
+# Respuestas (población general, o el color en las respuestas): rojo #CC2936 y
+# azul marino #08415C, elegidos por el usuario.
+#   1 serie (medias, barras)   azul
+#   2 respuestas               rojo y azul
+#   3 o más, con orden         mitad rojos (de #CC2936 a rojo claro) y mitad azules (de
+#                              azul claro a #1D5878, algo más claro que el marino para que
+#                              no pese más que el rojo); gris cálido solo si hay respuesta
+#                              central (número impar). Sin pasar por el gris, los tonos
+#                              intermedios no salen apagados.
+#   sin orden (NOMINALES)      rojo, azul y cuatro acompañantes (mínimo 12 en OKLab
+#                              entre pares, también con daltonismo)
+#   N.S., N.C. y similares     gris claro, fuera de la gama
+ROJO <- "#CC2936"; AZUL <- "#08415C"; AZUL_GAMA <- "#1D5878"
+ROJO_CLARO <- "#EC7F86"; AZUL_CLARO <- "#5B9BC8"
+NEUTRO <- "#A39C93"; GRIS_NSNC <- "#C4BFB7"
+NOMINALES <- c("b.1", "b.8", "c.7", "d.5", "d.6", "e.2.2", "e.3")
+PALETA_NOMINAL <- c(ROJO, AZUL, "#C0892B", "#9187D7", "#378377", "#E8A0A8")
+
+colores_respuestas <- function(niveles, nominal = FALSE) {
+  fuera <- niveles %in% c(NSNC, SIN_BASE)
+  k <- sum(!fuera)
+  p <- if (k <= 1) AZUL
+       else if (nominal) { if (k <= length(PALETA_NOMINAL)) PALETA_NOMINAL[seq_len(k)]
+                           else grDevices::hcl.colors(k, "Dark 3") }
+       else if (k == 2) c(ROJO, AZUL)
+       else { h <- k %/% 2
+              c(grDevices::colorRampPalette(c(ROJO, ROJO_CLARO), space = "Lab")(h),
+                if (k %% 2) NEUTRO,
+                rev(grDevices::colorRampPalette(c(AZUL_GAMA, AZUL_CLARO), space = "Lab")(h))) }
+  col <- rep(GRIS_NSNC, length(niveles)); col[!fuera] <- p[seq_len(k)]
+  stats::setNames(col, niveles)
+}
+
 # El color sigue a la categoría: se asigna sobre TODOS los niveles, no sobre los visibles
 colores_de <- function(niveles, var = "") {
   if (var == "x_voto") return(PARTIDOS[niveles])
