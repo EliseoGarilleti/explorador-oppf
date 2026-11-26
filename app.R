@@ -40,7 +40,10 @@ plegar <- function(titulo, ...) tags$details(class = "plegar", tags$summary(titu
 ui <- page_sidebar(
   window_title = "Explorador OPPF",
   theme = bs_theme(version = 5, primary = "#164b91", base_font = "Roboto, 'Helvetica Neue', Arial, sans-serif", "font-size-base" = "0.875rem"),
-  tags$head(tags$style(HTML(readLines("estilo.css", encoding = "UTF-8") |> paste(collapse = "\n")))),
+  tags$head(tags$style(HTML(readLines("estilo.css", encoding = "UTF-8") |> paste(collapse = "\n"))),
+            # Altura mínima del lienzo que pide el servidor (0 = la de siempre)
+            tags$script(HTML("$(function () { Shiny.addCustomMessageHandler('alto_lienzo', function (h) {
+              var l = document.querySelector('.lienzo'); if (l) l.style.minHeight = h > 0 ? h + 'px' : ''; }); });"))),
   sidebar = sidebar(
     width = 300, open = list(mobile = "closed"), bg = "#fafaf8",
     div(class = "marca", "Explorador OPPF"),
@@ -237,7 +240,12 @@ server <- function(input, output, session) {
     r <- res(); if (input$tipo == "barras") validate(need(as.integer(input$ola) %in% r$año, "No hay datos en esa ola."))
     w <- session$clientData$output_graf_width; h <- session$clientData$output_graf_height
     w <- if (is.null(w) || w < 200) 900 else w; h <- if (is.null(h) || h < 250) 520 else h
-    ggiraph::girafe(ggobj = hacer_grafico(r, opciones(r, ancho_in = w / 96)), width_svg = w / 96, height_svg = h / 96,
+    p <- hacer_grafico(r, opciones(r, ancho_in = w / 96))
+    # Pantalla estrecha con varias filas de paneles: el lienzo crece para que
+    # cada fila tenga altura (si no, en el móvil los paneles salen aplastados)
+    filas <- p@meta$filas %||% 1
+    session$sendCustomMessage("alto_lienzo", if (w < 600 && filas > 1) 90 + filas * 210 else 0)
+    ggiraph::girafe(ggobj = p, width_svg = w / 96, height_svg = h / 96,
       options = list(
         ggiraph::opts_tooltip(css = "background:#fff;color:#222;border:1px solid #e3e3e0;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.08);padding:8px 10px;font-family:Roboto,sans-serif;font-size:13px", opacity = 1),
         ggiraph::opts_hover(css = "fill-opacity:.28;stroke-opacity:0;"),

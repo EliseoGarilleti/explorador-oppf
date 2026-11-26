@@ -91,12 +91,25 @@ hacer_grafico <- function(r, op) {
   k        <- op$base / ggplot2::.pt       # todo el texto del gráfico depende de op$base
   npan     <- if (hay_otro) min(4, dplyr::n_distinct(r$otro)) else if (hay_g2) min(4, dplyr::n_distinct(r$g2)) else 1
   n_olas   <- dplyr::n_distinct(r$año)
-  # Columnas de paneles: hasta 4, menos si no caben paneles de 1,3 pulgadas
-  # (en el móvil, dos). Y ancho de cada panel, sin eje, márgenes ni separación.
+  # Columnas de paneles: hasta 4 si caben (paneles de 1,6 pulgadas) y al menos 2
+  # aunque la pantalla sea estrecha, para no apilar los paneles en el móvil.
+  # Y ancho de cada panel, sin eje, márgenes ni separación.
+  # Entre las columnas posibles, la que deja menos huecos (4 paneles: 4 x 1 o
+  # 2 x 2, nunca 3 + 1); a igualdad, la que tiene más columnas.
   ancho_in <- if (is.null(op$ancho_in)) 9.4 else op$ancho_in
+  n_tot    <- if (hay_otro) dplyr::n_distinct(r$otro) else if (hay_g2) dplyr::n_distinct(r$g2) else 1
   ncol_pan <- if (hay_otro && hay_g2) dplyr::n_distinct(r$otro)
-              else max(1, min(npan, floor((ancho_in - .5) / 1.6)))
+              else if (n_tot <= 1) 1
+              else {
+                cand   <- 2:max(2, min(n_tot, 4, floor((ancho_in - .5) / 1.6)))
+                huecos <- ceiling(n_tot / cand) * cand - n_tot
+                max(cand[huecos == min(huecos)])
+              }
   panel_in <- max(1, (ancho_in - .8 - (ncol_pan - 1) * .3) / ncol_pan)
+  # Filas de paneles: la app agranda el lienzo en el móvil si hay más de una
+  filas_pan <- if (hay_otro && hay_g2) dplyr::n_distinct(r$g2)
+               else if (hay_otro) ceiling(dplyr::n_distinct(r$otro) / ncol_pan)
+               else if (hay_g2) ceiling(dplyr::n_distinct(r$g2) / ncol_pan) else 1
   # Con varios paneles o muchas olas, los años se abrevian para que no se pisen
   anio_txt <- function(x) if (npan >= 3 || (npan == 2 && n_olas > 10) || (op$tipo == "apilada" && n_olas > 12 && npan >= 2))
     paste0("'", substr(x, 3, 4)) else as.character(x)
@@ -273,5 +286,6 @@ hacer_grafico <- function(r, op) {
          else ggplot2::guide_legend(ncol = max(1, floor((ancho_in - .3) / max(ent))), byrow = TRUE)
     ggplot2::guides(fill = if (op$tipo == "linea") "none" else g, color = g)
   }
+  p@meta$filas <- filas_pan                   # lo lee la app para la altura del lienzo
   p
 }
